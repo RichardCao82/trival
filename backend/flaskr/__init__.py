@@ -68,10 +68,14 @@ def create_app(test_config=None):
     page = request.args.get('page', 1, type=int)
     start =  (page - 1) * QUESTIONS_PER_PAGE
     end = start + QUESTIONS_PER_PAGE
+    print('page: ', page, 'start: ', start, 'end: ', end)
 
     all_questions = Question.query.order_by(Question.id).all()
     questions = [question.format() for question in all_questions]
     current_questions = questions[start:end]
+
+    if len(current_questions) < 1:
+      abort(404)
 
     categories_data = categories().get_data().decode("utf-8")
 
@@ -91,14 +95,14 @@ def create_app(test_config=None):
   TEST: When you click the trash icon next to a question, the question will be removed.
   This removal will persist in the database and when you refresh the page. 
   '''
-  @app.route('/questions/<question_id>', methods=['DELETE'])
+  @app.route('/questions/<int:question_id>', methods=['DELETE'])
   def delete_question(question_id):
     print('message: DELETE - /questions/question_id')
     try:
       question = Question.query.filter(Question.id == question_id).one_or_none()
 
       if question is None:
-        abort(404)
+        abort(422)
 
       question.delete()
 
@@ -155,7 +159,7 @@ def create_app(test_config=None):
   def search_questions():
     print('message: POST - /questions/search')
     
-    total_questions = len(Question.query.all())
+    #total_questions = len(Question.query.all())
 
     tag = request.get_json().get('searchTerm', '')
     search = "%{}%".format(tag)
@@ -164,10 +168,10 @@ def create_app(test_config=None):
 
     result = {
       'questions': questions,
-      'total_questions': total_questions,
+      'total_questions': len(questions),
       'current_category': ''  # what is value should be filled
     }
-    print(result)
+    #print(result)
     return jsonify(result)
 
   '''
@@ -182,14 +186,14 @@ def create_app(test_config=None):
   def category_questions(category_id):
     print('message: GET - /categories/category_id/questions')
     
-    total_questions = len(Question.query.all())
+    #total_questions = len(Question.query.all())
 
     all_questions = Question.query.filter(Question.category == category_id).order_by(Question.id).all()
     questions = [question.format() for question in all_questions]
 
     result = {
       'questions': questions,
-      'total_questions': total_questions,
+      'total_questions': len(questions),
       'current_category': category_id
     }
     #print(result)
@@ -214,16 +218,43 @@ def create_app(test_config=None):
 
     previous_questions = body.get('previous_questions', None)
     quiz_category = body.get('quiz_category', None)
+    quiz_category_id = int(quiz_category['id'])
 
-    all_questions = Question.query.filter(Question.category == int(quiz_category['id'])).order_by(Question.id).all()
-    question = all_questions[random.randint(0, len(all_questions)-1)]
+    try:
+      all_questions = []
+      if quiz_category_id > 0:
+        all_questions = Question.query.filter(Question.category == quiz_category_id).order_by(Question.id).all()
+      else:
+        all_questions = Question.query.order_by(Question.id).all()
+      
+      random_id = 0
+      nums_questions = len(all_questions)
+      if nums_questions < 1:
+        abort(404)
+      elif nums_questions == 1:
+        random_id = 0
+      else:
+        if len(previous_questions) <= 0:
+          random_id = random.randint(0, nums_questions-1)
+        else:
+          previous_question_id = previous_questions[-1]
+          while True:
+            random_id = random.randint(0, nums_questions-1)
+            question_id = all_questions[random_id].id
+            print('question_id', question_id, 'previous_question_id', previous_question_id)
+            if question_id != previous_question_id:
+              break
+      question = all_questions[random_id]
 
-    result = {
-      'previous_questions': previous_questions,
-      'question': question.format()
-    }
-    #print(result)
-    return jsonify(result)
+      result = {
+        'previous_questions': previous_questions,
+        'question': question.format()
+      }
+      #print(result)
+      return jsonify(result)
+
+    except:
+      abort(404)
 
   '''
   @TODO: 
@@ -245,6 +276,14 @@ def create_app(test_config=None):
       "error": 422,
       "message": "Unprocessable Entity"
     }), 422
+
+  @app.errorhandler(405)
+  def unprocessable(error):
+    return jsonify({
+      "success": False, 
+      "error": 405,
+      "message": "Method Not Allowed"
+    }), 405
 
   return app
 
