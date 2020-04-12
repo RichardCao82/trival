@@ -182,10 +182,11 @@ The API will return three error types when requests fail:
 
 #### POST /questions
 - General:
-    - Creates a new question using the question, answer, difficulty and category. Returns the success value. 
+    - Creates a new question using the question, answer, difficulty and category. Returns the success value and question id. 
 - Sample: `curl http://127.0.0.1:5000/questions -X POST -H "Content-Type: application/json" -d '{"question":"test_question", "answer":"test_answer", "difficulty":'2', "category":'3'}'`
 ```
 {
+  "created": 33, 
   "success": true
 }
 ```
